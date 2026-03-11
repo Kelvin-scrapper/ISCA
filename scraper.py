@@ -27,10 +27,16 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(f'logs/{timestamp}.log'),
-        logging.StreamHandler()
+        logging.FileHandler(f'logs/{timestamp}.log', encoding='utf-8'),
+        logging.StreamHandler(),
     ]
 )
+# Fix Windows console encoding so Unicode characters (e.g. ✓ ✗) don't crash the stream handler
+import sys, io
+if hasattr(sys.stderr, 'buffer'):
+    logging.root.handlers[-1].stream = io.TextIOWrapper(
+        sys.stderr.buffer, encoding='utf-8', errors='replace'
+    )
 
 # ============================================================================
 # ASSERTION FUNCTIONS
@@ -343,10 +349,12 @@ def run_playwright_scraper():
         year_str = f"_{selected_year}" if selected_year else ""
         logging.info(f"Selected filter: {selected_month}{year_str}")
 
-        logging.info("Looking for 'Secure Choice Monthly' link...")
-        # Get the PDF link
-        pdf_link_element = page.get_by_role('link', name='Secure Choice Monthly')
-        assert_element_exists(pdf_link_element, "Secure Choice Monthly link")
+        logging.info("Looking for 'Secure Choice Monthly Dashboard' PDF link...")
+        # Get the PDF link by href pattern (more robust than link text, which can be split across elements)
+        pdf_link_element = page.locator(
+            'a[href*="Secure-Choice-Monthly-Dashboard"], a[href*="secure%20choice%20monthly%20dashboard"]'
+        ).first
+        assert_element_exists(pdf_link_element, "Secure Choice Monthly Dashboard PDF link")
 
         # Extract the href attribute
         pdf_url = pdf_link_element.get_attribute('href')
